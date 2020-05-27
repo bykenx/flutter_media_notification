@@ -40,6 +40,9 @@ public class FlutterMediaNotificationPlugin implements MethodCallHandler {
         hideNotification();
         result.success(null);
         break;
+      case "updatePlaybackInfo":
+        result.success(null);
+        break;
       default:
         result.notImplemented();
     }
