@@ -26,13 +26,18 @@ class MediaNotification {
   /// To show your media notification you have to pass [title] and
   /// [author] of music. If music is pausing you have to set
   /// [isPlaying] false.
-  static Future showNotification(
-      {title = '', author = '', isPlaying = true}) async {
+  static Future showNotification({
+    title = '', 
+    author = '', 
+    isPlaying = true, 
+    String cover,
+  }) async {
     try {
       final Map<String, dynamic> params = <String, dynamic>{
         'title': title,
         'author': author,
-        'isPlaying': isPlaying
+        'isPlaying': isPlaying,
+        'cover': cover,
       };
       await _channel.invokeMethod('showNotification', params);
       _channel.setMethodCallHandler(_utilsHandler);
@@ -47,6 +52,23 @@ class MediaNotification {
       await _channel.invokeMethod('hideNotification');
     } on PlatformException catch (e) {
       print("Failed to hide notification: '${e.message}'.");
+    }
+  }
+
+  static Future updatePlaybackInfo({
+    Duration position,
+    Duration duration,
+    double rate,
+  }) async {
+    final Map<String, dynamic> params = {
+      'position': position.inSeconds,
+      'duration': duration.inSeconds,
+      'rate': rate,
+    };
+    try {
+      await _channel.invokeMethod('updatePlaybackInfo', params);
+    } on PlatformException catch (e) {
+      print("Failed to update playbackInfo: '${e.message}'.");
     }
   }
 
