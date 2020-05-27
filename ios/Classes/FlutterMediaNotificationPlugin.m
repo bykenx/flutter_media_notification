@@ -41,7 +41,6 @@
     if ([@"showNotification" isEqualToString: call.method]) {
         NSLog(@"show notification");
         [self setNowPlayingMetadata:call.arguments];
-        [self setNowPlayingPlaybackInfo:call.arguments];
         [self enableHandlers];
         result(nil);
     } else if ([@"hideNotification" isEqualToString: call.method]) {
@@ -62,6 +61,8 @@
     nowPlayingInfo[MPMediaItemPropertyArtist] = @"未知艺术家";
     nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = @(0);
     nowPlayingInfo[MPMediaItemPropertyPlaybackDuration] = @(0);
+    nowPlayingInfo[MPNowPlayingInfoPropertyDefaultPlaybackRate] = @(1.0);
+    nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = @(1.0);
 }
 
 #pragma mark - MPNowPlayingInfoCenter
@@ -69,14 +70,20 @@
 - (void) setNowPlayingMetadata:(NSDictionary*) metadata {
     MPNowPlayingInfoCenter* nowPlayingInfoCenter = [MPNowPlayingInfoCenter defaultCenter];
     
-    nowPlayingInfo[MPMediaItemPropertyTitle] = metadata[@"title"];
-    nowPlayingInfo[MPMediaItemPropertyArtist] = metadata[@"author"];
-    
+    // need not to set isPlaying nowPlayingInfoCenter.playbackState
+    NSString* title = metadata[@"title"];
+    NSString* author = metadata[@"author"];
     NSString* cover = metadata[@"cover"];
     
-    if (cover != nil && ![cover isKindOfClass:[NSNull class]]){
+    if(![self isNull:title trim:false]) {
+        nowPlayingInfo[MPMediaItemPropertyTitle] = title;
+    }
+    if(![self isNull:author trim:false]) {
+        nowPlayingInfo[MPMediaItemPropertyArtist] = author;
+    }
+    if(![self isNull:cover trim:true]) {
         // 使用链接中的图片
-        NSData* data = [NSData dataWithContentsOfURL:[NSURL URLWithString:metadata[@"cover"]]];
+        NSData* data = [NSData dataWithContentsOfURL:[NSURL URLWithString:cover]];
         MPMediaItemArtwork* artwork = [[MPMediaItemArtwork alloc] initWithImage:[UIImage imageWithData:data]];
         nowPlayingInfo[MPMediaItemPropertyArtwork] = artwork;
     }
@@ -89,7 +96,6 @@
     
     nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = metadata[@"position"];
     nowPlayingInfo[MPMediaItemPropertyPlaybackDuration] = metadata[@"duration"];
-    nowPlayingInfo[MPNowPlayingInfoPropertyDefaultPlaybackRate] = metadata[@(1.0)];
     nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = metadata[@"rate"];
 
     nowPlayingInfoCenter.nowPlayingInfo = nowPlayingInfo;
@@ -152,6 +158,27 @@
     NSLog(@"play prev track");
     [_channel invokeMethod:@"prev" arguments:nil];
     return MPRemoteCommandHandlerStatusSuccess;
+}
+
+- (BOOL) isNull:(NSString*)str trim:(BOOL)trim {
+    // nil or NULL
+    if(!str) {
+        return YES;
+    }
+    if([str isKindOfClass:[NSNull class]]) {
+        return YES;
+    }
+    if (!str.length) {
+        return YES;
+    }
+    if(trim) {
+        NSCharacterSet* set = [NSCharacterSet whitespaceAndNewlineCharacterSet];
+        NSString* trimmedStr = [str stringByTrimmingCharactersInSet:set];
+        if(!trimmedStr.length) {
+            return YES;
+        }
+    }
+    return NO;
 }
 
 @end
