@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/gray">
+    <RelativeLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:padding="15dp"
+        tools:ignore="RelativeOverlap">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="64dp">
+            <!-- 封面 -->
+            <ImageView
+                android:contentDescription="@string/player_cover"
+                android:id="@+id/mfn_cover"
+                android:layout_width="48dp"
+                android:layout_height="match_parent"
+                android:src="@drawable/default_cover"/>
+
+            <RelativeLayout
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:paddingLeft="10dp">
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical">
+                    <!-- 标题 -->
+                    <TextView
+                        android:id="@+id/mfn_title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:marqueeRepeatLimit="marquee_forever"
+                        android:textStyle="bold"
+                        android:textColor="@color/white"
+                        android:textSize="16sp"
+                        android:maxLines="1"/>
+                    <!-- 作者 -->
+                    <TextView
+                        android:id="@+id/mfn_author"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:maxLines="1"
+                        android:textSize="12sp"
+                        android:textColor="@color/white"/>
+                </LinearLayout>
+                <!-- 播放进度 -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentBottom="true">
+
+                    <TextView
+                        android:id="@+id/mfn_position"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="12sp"
+                        android:textColor="@color/white" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/progress_separator"
+                        android:textColor="@color/white" />
+
+                    <TextView
+                        android:id="@+id/mfn_duration"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="12sp"
+                        android:textColor="@color/white" />
+                </LinearLayout>
+            </RelativeLayout>
+        </LinearLayout>
+
+        <!-- 播放按钮 -->
+        <ImageView
+            android:id="@+id/mfn_play_btn"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_centerVertical="true"
+            android:layout_alignParentRight="true"
+            android:src="@drawable/icon_play"
+            android:clickable="true"
+            android:focusable="true"
+            android:contentDescription="@string/player_play"/>
+
+        <!-- 暂停按钮 -->
+        <ImageView
+            android:id="@+id/mfn_pause_btn"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_centerVertical="true"
+            android:layout_alignParentRight="true"
+            android:src="@drawable/icon_pause"
+            android:clickable="true"
+            android:focusable="true"
+            android:contentDescription="@string/player_pause"/>
+    </RelativeLayout>
+        <!--  关闭按钮  -->
+        <ImageButton
+            android:contentDescription="@string/close"
+            android:id="@+id/mnf_close_btn"
+            android:layout_width="10dp"
+            android:layout_height="10dp"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentRight="true"
+            android:layout_marginTop="4dp"
+            android:layout_marginRight="4dp"
+            android:src="@drawable/icon_fork"/>
+</RelativeLayout>
