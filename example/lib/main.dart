@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_media_notification/flutter_media_notification.dart';
 
@@ -11,15 +13,23 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   String status = 'hidden';
 
+  Duration position = Duration.zero;
+  Duration duration = Duration(seconds: 300);
+  double rate = 2.0;
+
+  Timer timer;
+
   @override
   void initState() {
     super.initState();
 
     MediaNotification.setListener('pause', () {
+      timer?.cancel();
       setState(() => status = 'pause');
     });
 
     MediaNotification.setListener('play', () {
+      startTimer();
       setState(() => status = 'play');
     });
 
@@ -28,6 +38,28 @@ class _MyAppState extends State<MyApp> {
     MediaNotification.setListener('prev', () {});
 
     MediaNotification.setListener('select', () {});
+
+    startTimer();
+  }
+
+  startTimer() {
+    timer?.cancel();
+    timer = Timer.periodic(Duration(seconds: 1), (timer) {
+      if (position >= duration) {
+        timer.cancel();
+      }
+      setState(() {
+        position += Duration(seconds: 1);
+      });
+    });
+  }
+
+  clearTimer() {
+    timer?.cancel();
+  }
+
+  getFormatTime(Duration duration) {
+    return '${duration.inMinutes.toString().padLeft(2, '0')}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}';
   }
 
   @override
@@ -43,11 +75,22 @@ class _MyAppState extends State<MyApp> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: <Widget>[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Text('${getFormatTime(position)}/${getFormatTime(duration)}')
+                ],
+              ),
               FlatButton(
                   child: Text('Show notification'),
                   onPressed: () {
                     MediaNotification.showNotification(
-                        title: 'Title', author: 'Song author');
+                        title: 'Title', author: 'Song author', cover: 'https://files.bookce.gambition.cn/Fiuo-lkeVPjtv9WIolstEmP7E25B');
+                    MediaNotification.updatePlaybackInfo(
+                        position: position,
+                        duration: duration,
+                        rate: 1.0,
+                    );
                     setState(() => status = 'play');
                   }),
               FlatButton(
