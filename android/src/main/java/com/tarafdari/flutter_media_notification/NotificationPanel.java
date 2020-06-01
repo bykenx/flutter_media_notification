@@ -6,95 +6,117 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.IBinder;
-import android.support.v4.media.session.MediaSessionCompat;
+import android.view.View;
+import android.widget.RemoteViews;
 
 import androidx.core.app.NotificationCompat;
-import androidx.media.session.MediaButtonReceiver;
+
+import java.io.InputStream;
+import java.net.URL;
+import java.util.Locale;
+import java.util.Timer;
+import java.util.TimerTask;
 
 
 public class NotificationPanel extends Service {
     public static int NOTIFICATION_ID = 1;
-    public  static final String CHANNEL_ID = "flutter_media_notification";
-    public  static final String MEDIA_SESSION_TAG = "flutter_media_notification";
+    public static final String CHANNEL_ID = "flutter_media_notification";
+
+    public Timer timer;
+
+    private MediaInfo info;
+
+    private NotificationCompat.Builder builder;
+
+    private RemoteViews remoteViews;
+
+    private AsyncTask coverDownloadTask;
+
+    static final String ACTION_SHOW_NOTIFICATION = "show_notification";
+
+    static final String ACTION_UPDATE_PLAYBACK_INFO = "update_playback_info";
+
+    static final String ACTION_TOGGLE_PLAYING = "update_toggle_playing";
 
     @Override
     public void onCreate() {
         super.onCreate();
+        builder = new NotificationCompat.Builder(this, CHANNEL_ID);
+        remoteViews = new RemoteViews(getPackageName(), R.layout.media_notification_layout);
+        info = MediaInfo.defaults();
+        createNotificationChannel();
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        boolean isPlaying = intent.getBooleanExtra("isPlaying", true);
-        String title = intent.getStringExtra("title");
-        String author = intent.getStringExtra("author");
-
-        createNotificationChannel();
-
-
-        MediaSessionCompat mediaSession = new MediaSessionCompat(this, MEDIA_SESSION_TAG);
-
-
-        int iconPlayPause = R.drawable.baseline_play_arrow_black_48;
-        String titlePlayPause = "pause";
-        if(isPlaying){
-            iconPlayPause=R.drawable.baseline_pause_black_48;
-            titlePlayPause="play";
+        String action = intent.getAction();
+        assert action != null;
+        switch (action) {
+            case ACTION_SHOW_NOTIFICATION:
+                showNotification(intent);
+                break;
+            case ACTION_UPDATE_PLAYBACK_INFO:
+                updatePlaybackInfo(intent);
+                break;
+            case ACTION_TOGGLE_PLAYING:
+                togglePlaying(intent);
+                break;
         }
 
-        Intent toggleIntent = new Intent(this, NotificationReturnSlot.class)
-                .setAction("toggle")
-                .putExtra("title",  title)
-                .putExtra("author",  author)
-                .putExtra("play", !isPlaying);
-        PendingIntent pendingToggleIntent = PendingIntent.getBroadcast(this, 0, toggleIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-        MediaButtonReceiver.handleIntent(mediaSession, toggleIntent);
+        // 设置数据
+        setContentViewData(remoteViews, info);
 
-        //TODO(ALI): add media mediaSession Buttons and handle them
-        Intent nextIntent = new Intent(this, NotificationReturnSlot.class)
-                .setAction("next");
-        PendingIntent pendingNextIntent = PendingIntent.getBroadcast(this, 0, nextIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-//        MediaButtonReceiver.handleIntent(mediaSession, nextIntent);
+        startForeground(NOTIFICATION_ID, builder.build());
 
-        Intent prevIntent = new Intent(this, NotificationReturnSlot.class)
-                .setAction("prev");
-        PendingIntent pendingPrevIntent = PendingIntent.getBroadcast(this, 0, prevIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-//        MediaButtonReceiver.handleIntent(mediaSession, prevIntent);
-
-        Intent selectIntent = new Intent(this, NotificationReturnSlot.class)
-                .setAction("select");
-        PendingIntent selectPendingIntent = PendingIntent.getBroadcast(this, 0, selectIntent, PendingIntent.FLAG_CANCEL_CURRENT);
-//        MediaButtonReceiver.handleIntent(mediaSession, selectIntent);
-
-        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .addAction(R.drawable.baseline_skip_previous_black_48, "prev", pendingPrevIntent)
-                .addAction(iconPlayPause, titlePlayPause, pendingToggleIntent)
-                .addAction(R.drawable.baseline_skip_next_black_48, "next", pendingNextIntent)
-                .setStyle(new androidx.media.app.NotificationCompat.MediaStyle()
-                        .setShowActionsInCompactView(0, 1,2)
-                        .setShowCancelButton(true)
-                        .setMediaSession(mediaSession.getSessionToken()))
-                .setSmallIcon(R.drawable.ic_stat_music_note)
-                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setVibrate(new long[]{0L})
-                .setPriority(NotificationCompat.PRIORITY_MAX)
-                .setContentTitle(title)
-                .setContentText(author)
-                .setSubText(title)
-                .setContentIntent(selectPendingIntent)
-                .setLargeIcon(BitmapFactory.decodeResource(this.getResources(), R.drawable.ic_stat_music_note))
-                .build();
-
-        startForeground(NOTIFICATION_ID, notification);
-        if(!isPlaying) {
+        if(!info.isPlaying) {
             stopForeground(false);
         }
 
         return START_NOT_STICKY;
     }
 
+    private void closeNotification(Intent intent) {
+        stopForeground(true);
+    }
+
+    void showNotification(Intent intent) {
+        this.updateMediaInfoFromIntent(intent);
+
+        builder
+                .setContentTitle(info.appName)
+                .setSmallIcon(info.appIcon)
+                .setCustomContentView(remoteViews);
+
+        setActions(remoteViews);
+
+        // 点击通知栏
+        Intent selectIntent = new Intent(this, NotificationReturnSlot.class).setAction("select");
+        PendingIntent selectPendingIntent = PendingIntent.getBroadcast(this, 0, selectIntent, PendingIntent.FLAG_CANCEL_CURRENT);
+        builder.setContentIntent(selectPendingIntent);
+    }
+
+    void updatePlaybackInfo(Intent intent) {
+        this.updateMediaInfoFromIntent(intent);
+        if (info.isPlaying) {
+            // 同步播放进度
+            startTimer();
+        }
+    }
+
+    void togglePlaying(Intent intent) {
+        if (info.isPlaying) {
+            info.isPlaying = false;
+            clearTimer();
+        } else {
+            info.isPlaying = true;
+            startTimer();
+        }
+    }
 
     @Override
     public void onDestroy() {
@@ -104,6 +126,11 @@ public class NotificationPanel extends Service {
     @Override
     public IBinder onBind(Intent intent) {
         return null;
+    }
+
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        stopForeground(true);
     }
 
     private void createNotificationChannel() {
@@ -116,16 +143,128 @@ public class NotificationPanel extends Service {
             serviceChannel.setDescription("flutter_media_notification");
             serviceChannel.setShowBadge(false);
             serviceChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-
             NotificationManager manager = getSystemService(NotificationManager.class);
-            assert manager != null;
-            manager.createNotificationChannel(serviceChannel);
+            if (manager != null) {
+                manager.createNotificationChannel(serviceChannel);
+            }
         }
     }
 
-    @Override
-    public void onTaskRemoved(Intent rootIntent) {
-        stopForeground(true);
+    private void setContentViewData(RemoteViews remoteViews, MediaInfo info) {
+        if (info.cover != null) {
+            remoteViews.setImageViewBitmap(R.id.mfn_cover, info.cover);
+        } else {
+            remoteViews.setImageViewResource(R.id.mfn_cover, R.drawable.default_cover);
+        }
+        remoteViews.setTextViewText(R.id.mfn_title, info.title);
+        remoteViews.setTextViewText(R.id.mfn_author, info.author);
+        remoteViews.setTextViewText(R.id.mfn_position, getFormatTime(info.position));
+        remoteViews.setTextViewText(R.id.mfn_duration, getFormatTime(info.duration));
+        remoteViews.setViewVisibility(R.id.mfn_play_btn, info.isPlaying ? View.INVISIBLE : View.VISIBLE);
+        remoteViews.setViewVisibility(R.id.mfn_pause_btn, info.isPlaying ? View.VISIBLE : View.INVISIBLE);
+    }
+
+    private void setActions(RemoteViews views) {
+        // 播放 & 暂停
+        Intent playIntent = new Intent(this, NotificationReturnSlot.class).setAction("play");
+        PendingIntent pendingPlayIntent = PendingIntent.getBroadcast(this, 0, playIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+        views.setOnClickPendingIntent(R.id.mfn_play_btn, pendingPlayIntent);
+
+        Intent pauseIntent = new Intent(this, NotificationReturnSlot.class).setAction("pause");
+        PendingIntent pendingPauseIntent = PendingIntent.getBroadcast(this, 0, pauseIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+        views.setOnClickPendingIntent(R.id.mfn_pause_btn, pendingPauseIntent);
+
+        Intent closeIntent = new Intent(this, NotificationReturnSlot.class).setAction("close");
+        PendingIntent pendingCloseIntent = PendingIntent.getBroadcast(this, 0, closeIntent, PendingIntent.FLAG_ONE_SHOT);
+        views.setOnClickPendingIntent(R.id.mnf_close_btn, pendingCloseIntent);
+    }
+
+    private String getFormatTime(int time) {
+        int remain = time / 60;
+        int second = time % 60;
+        return String.format(Locale.ENGLISH, "%02d", remain) + ":" + String.format(Locale.ENGLISH, "%02d", second);
+    }
+
+    private void updateMediaInfoFromIntent(Intent intent) {
+        if (intent.hasExtra("appName")) {
+            info.appName = intent.getStringExtra("appName");
+        }
+        if (intent.hasExtra("appIcon")) {
+            info.appIcon = intent.getIntExtra("appIcon", 0);
+        }
+        if (intent.hasExtra("title")) {
+            info.title = intent.getStringExtra("title");
+        }
+        if (intent.hasExtra("author")) {
+            info.author = intent.getStringExtra("author");
+        }
+        if (intent.hasExtra("cover")) {
+            if (coverDownloadTask != null) {
+                coverDownloadTask.cancel(false);
+            }
+            coverDownloadTask = new BitmapTask().execute(intent.getStringExtra("cover"));
+        }
+        if (intent.hasExtra("position")) {
+            info.position = intent.getIntExtra("position", 0);
+        }
+        if (intent.hasExtra("duration")) {
+            info.duration = intent.getIntExtra("duration", 0);
+        }
+        if (intent.hasExtra("isPlaying")) {
+            info.isPlaying = intent.getBooleanExtra("isPlaying", true);
+        }
+        if (intent.hasExtra("rate")) {
+            info.rate = intent.getDoubleExtra("rate", 1.0);
+        }
+    }
+
+    private void startTimer() {
+        clearTimer();
+        timer = new Timer("update_progress_timer");
+        timer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                if (info.position >= info.duration) {
+                    timer.cancel();
+                    return;
+                }
+                info.position += info.rate;
+                setContentViewData(remoteViews, info);
+
+                startForeground(NOTIFICATION_ID, builder.build());
+
+                if(!info.isPlaying) {
+                    stopForeground(false);
+                }
+            }
+        }, 0, 1000);
+    }
+
+    private void clearTimer() {
+        if (timer != null) {
+            timer.cancel();
+            timer = null;
+        }
+    }
+
+    private class BitmapTask extends AsyncTask<String, Void, Bitmap> {
+        @Override
+        protected Bitmap doInBackground(String... params) {
+            try {
+                URL url = new URL(params[0]);
+                InputStream is = url.openConnection().getInputStream();
+                return BitmapFactory.decodeStream(is);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Bitmap cover) {
+            info.cover = cover;
+            coverDownloadTask = null;
+        }
     }
 }
 

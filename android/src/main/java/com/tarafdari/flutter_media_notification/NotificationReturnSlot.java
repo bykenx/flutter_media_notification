@@ -9,34 +9,36 @@ public class NotificationReturnSlot extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        switch (intent.getAction()) {
+        String action = intent.getAction();
+        assert action != null;
+        switch (action) {
             case "prev":
                 FlutterMediaNotificationPlugin.callEvent("prev");
                 break;
             case "next":
                 FlutterMediaNotificationPlugin.callEvent("next");
                 break;
-            case "toggle":
-                String title = intent.getStringExtra("title");
-                String author = intent.getStringExtra("author");
-                boolean play = intent.getBooleanExtra("play",true);
-
-                if(play)
-                    FlutterMediaNotificationPlugin.callEvent("play");
-                else
-                    FlutterMediaNotificationPlugin.callEvent("pause");
-
-                FlutterMediaNotificationPlugin.showNotification(title, author,play);
+            case "play":
+                FlutterMediaNotificationPlugin.callEvent("play");
+                FlutterMediaNotificationPlugin.togglePlaying();
+                break;
+            case "pause":
+                FlutterMediaNotificationPlugin.callEvent("pause");
+                FlutterMediaNotificationPlugin.togglePlaying();
+                break;
+            case "close":
+                FlutterMediaNotificationPlugin.hideNotification();
+                context.sendBroadcast(new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS));
                 break;
             case "select":
-                Intent closeDialog = new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
-                context.sendBroadcast(closeDialog);
+                context.sendBroadcast(new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS));
                 String packageName = context.getPackageName();
                 PackageManager pm = context.getPackageManager();
                 Intent launchIntent = pm.getLaunchIntentForPackage(packageName);
                 context.startActivity(launchIntent);
 
                 FlutterMediaNotificationPlugin.callEvent("select");
+                break;
         }
     }
 }
