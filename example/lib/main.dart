@@ -85,11 +85,13 @@ class _MyAppState extends State<MyApp> {
                   child: Text('Show notification'),
                   onPressed: () {
                     MediaNotification.showNotification(
-                        title: 'Title', author: 'Song author', cover: 'https://files.bookce.gambition.cn/Fiuo-lkeVPjtv9WIolstEmP7E25B');
-                    MediaNotification.updatePlaybackInfo(
-                        position: position,
-                        duration: duration,
-                        rate: 1.0,
+                      isPlaying: true,
+                      title: 'Title', 
+                      author: 'Song author', 
+                      cover: 'https://files.bookce.gambition.cn/Fiuo-lkeVPjtv9WIolstEmP7E25B',
+                      position: position,
+                      duration: duration,
+                      rate: 1.0,
                     );
                     setState(() => status = 'play');
                   }),

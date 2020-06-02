@@ -8,7 +8,9 @@ import io.flutter.plugin.common.MethodChannel.Result;
 import io.flutter.plugin.common.PluginRegistry.Registrar;
 
 import android.content.Intent;
-import android.net.Uri;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.res.Resources;
 
 import androidx.annotation.NonNull;
 
@@ -31,22 +33,18 @@ public class FlutterMediaNotificationPlugin implements MethodCallHandler {
   public void onMethodCall(MethodCall call, @NonNull Result result) {
     switch (call.method) {
       case "showNotification":
+        final boolean isPlaying = Utils.getDefault((Boolean) call.argument("isPlaying"), true);
         final String title = Utils.getDefault((String) call.argument("title"), "");
         final String author = Utils.getDefault((String) call.argument("author"), "");
-        final boolean isPlaying = Utils.getDefault((Boolean) call.argument("isPlaying"), true);
         final String cover = call.argument("cover");
-        showNotification(title, author, isPlaying, cover);
+        final int position = Utils.getDefault((int) call.argument("position"), 0);
+        final int duration = Utils.getDefault((int) call.argument("duration"), 0);
+        final double rate = Utils.getDefault((Double) call.argument("rate"), 1.0);
+        showNotification(title, author, isPlaying, cover, position, duration, rate);
         result.success(null);
         break;
       case "hideNotification":
         hideNotification();
-        result.success(null);
-        break;
-      case "updatePlaybackInfo":
-        final int position = Utils.getDefault((int) call.argument("position"), 0);
-        final int duration = Utils.getDefault((int) call.argument("duration"), 0);
-        final double rate = Utils.getDefault((Double) call.argument("rate"), 1D);
-        updatePlaybackInfo(position, duration, rate);
         result.success(null);
         break;
       default:
@@ -70,33 +68,31 @@ public class FlutterMediaNotificationPlugin implements MethodCallHandler {
     });
   }
 
-  private static void showNotification(String title, String author, boolean play, String cover) {
+  private static void showNotification(String title, String author, boolean isPlaying, String cover, int position, int duration, double rate) {
     Intent serviceIntent = new Intent(registrar.context(), NotificationPanel.class);
     serviceIntent.setAction(NotificationPanel.ACTION_SHOW_NOTIFICATION);
+    PackageManager pm = registrar.context().getPackageManager();
+    try {
+      PackageInfo info = pm.getPackageInfo(registrar.context().getPackageName(), 0);
+      serviceIntent.putExtra("appName", info.applicationInfo.loadLabel(pm).toString());
+    } catch (PackageManager.NameNotFoundException e) {
+      serviceIntent.putExtra("appName", registrar.context().getApplicationInfo().name);
+    }
     serviceIntent.putExtra("appName", registrar.context().getApplicationInfo().name);
     serviceIntent.putExtra("appIcon", registrar.context().getApplicationInfo().icon);
+    serviceIntent.putExtra("isPlaying", isPlaying);
     serviceIntent.putExtra("title", title);
     serviceIntent.putExtra("author", author);
-    serviceIntent.putExtra("isPlaying", play);
     serviceIntent.putExtra("cover", cover);
-    if (cover != null && !"".equals(cover.trim())) {
-      serviceIntent.setData(Uri.parse(cover));
-    }
+    serviceIntent.putExtra("position", Math.min(position, duration));
+    serviceIntent.putExtra("duration", duration);
+    serviceIntent.putExtra("rate", rate);
     registrar.context().startService(serviceIntent);
   }
 
   static void hideNotification() {
     Intent serviceIntent = new Intent(registrar.context(), NotificationPanel.class);
     registrar.context().stopService(serviceIntent);
-  }
-
-  private static void updatePlaybackInfo(int position, int duration, double rate) {
-    Intent serviceIntent = new Intent(registrar.context(), NotificationPanel.class);
-    serviceIntent.setAction(NotificationPanel.ACTION_UPDATE_PLAYBACK_INFO);
-    serviceIntent.putExtra("position", position);
-    serviceIntent.putExtra("duration", duration);
-    serviceIntent.putExtra("rate", rate);
-    registrar.context().startService(serviceIntent);
   }
 
   static void togglePlaying() {

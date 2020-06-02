@@ -7,6 +7,4 @@ class Utils {
         }
         return object;
     }
-
-
 }

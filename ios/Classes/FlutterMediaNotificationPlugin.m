@@ -41,15 +41,13 @@
     if ([@"showNotification" isEqualToString: call.method]) {
         NSLog(@"show notification");
         [self setNowPlayingMetadata:call.arguments];
+        [self setNowPlayingPlaybackInfo:call.arguments];
         [self enableHandlers];
         result(nil);
     } else if ([@"hideNotification" isEqualToString: call.method]) {
         NSLog(@"hide notification");
         [MPNowPlayingInfoCenter defaultCenter].nowPlayingInfo = nil;
         [self disableHandlers];
-        result(nil);
-    } else if ([@"updatePlaybackInfo" isEqualToString:call.method]) {
-        [self setNowPlayingPlaybackInfo:call.arguments];
         result(nil);
     } else {
         result(FlutterMethodNotImplemented);
@@ -93,7 +91,7 @@
 
 - (void) setNowPlayingPlaybackInfo:(NSDictionary*)metadata {
     MPNowPlayingInfoCenter* nowPlayingInfoCenter = [MPNowPlayingInfoCenter defaultCenter];
-    
+    // ignore metadata[@"isPlaying"], iOS no need to set it.
     nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = metadata[@"position"];
     nowPlayingInfo[MPMediaItemPropertyPlaybackDuration] = metadata[@"duration"];
     nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = metadata[@"rate"];

@@ -17,6 +17,7 @@ import android.widget.RemoteViews;
 import androidx.core.app.NotificationCompat;
 
 import java.io.InputStream;
+import java.lang.ref.WeakReference;
 import java.net.URL;
 import java.util.Locale;
 import java.util.Timer;
@@ -35,11 +36,9 @@ public class NotificationPanel extends Service {
 
     private RemoteViews remoteViews;
 
-    private AsyncTask coverDownloadTask;
+    private AsyncTask<String, Void, Bitmap> coverDownloadTask;
 
     static final String ACTION_SHOW_NOTIFICATION = "show_notification";
-
-    static final String ACTION_UPDATE_PLAYBACK_INFO = "update_playback_info";
 
     static final String ACTION_TOGGLE_PLAYING = "update_toggle_playing";
 
@@ -60,9 +59,6 @@ public class NotificationPanel extends Service {
             case ACTION_SHOW_NOTIFICATION:
                 showNotification(intent);
                 break;
-            case ACTION_UPDATE_PLAYBACK_INFO:
-                updatePlaybackInfo(intent);
-                break;
             case ACTION_TOGGLE_PLAYING:
                 togglePlaying(intent);
                 break;
@@ -73,15 +69,17 @@ public class NotificationPanel extends Service {
 
         startForeground(NOTIFICATION_ID, builder.build());
 
-        if(!info.isPlaying) {
+        if (info.isPlaying) {
+            startTimer();
+        } else {
+            clearTimer();
+        }
+
+        if (!info.isPlaying) {
             stopForeground(false);
         }
 
         return START_NOT_STICKY;
-    }
-
-    private void closeNotification(Intent intent) {
-        stopForeground(true);
     }
 
     void showNotification(Intent intent) {
@@ -100,22 +98,8 @@ public class NotificationPanel extends Service {
         builder.setContentIntent(selectPendingIntent);
     }
 
-    void updatePlaybackInfo(Intent intent) {
-        this.updateMediaInfoFromIntent(intent);
-        if (info.isPlaying) {
-            // 同步播放进度
-            startTimer();
-        }
-    }
-
     void togglePlaying(Intent intent) {
-        if (info.isPlaying) {
-            info.isPlaying = false;
-            clearTimer();
-        } else {
-            info.isPlaying = true;
-            startTimer();
-        }
+        info.isPlaying = !info.isPlaying;
     }
 
     @Override
@@ -199,10 +183,13 @@ public class NotificationPanel extends Service {
             info.author = intent.getStringExtra("author");
         }
         if (intent.hasExtra("cover")) {
-            if (coverDownloadTask != null) {
-                coverDownloadTask.cancel(false);
+            String coverUrlString = intent.getStringExtra("cover");
+            if(coverUrlString != null) {
+                if (coverDownloadTask != null) {
+                    coverDownloadTask.cancel(false);
+                }
+                coverDownloadTask = new BitmapTask(this).execute(intent.getStringExtra("cover"));
             }
-            coverDownloadTask = new BitmapTask().execute(intent.getStringExtra("cover"));
         }
         if (intent.hasExtra("position")) {
             info.position = intent.getIntExtra("position", 0);
@@ -218,14 +205,14 @@ public class NotificationPanel extends Service {
         }
     }
 
-    private void startTimer() {
+    synchronized private void startTimer() {
         clearTimer();
         timer = new Timer("update_progress_timer");
         timer.schedule(new TimerTask() {
             @Override
             public void run() {
                 if (info.position >= info.duration) {
-                    timer.cancel();
+                    clearTimer();
                     return;
                 }
                 info.position += info.rate;
@@ -240,14 +227,21 @@ public class NotificationPanel extends Service {
         }, 0, 1000);
     }
 
-    private void clearTimer() {
+    synchronized private void clearTimer() {
         if (timer != null) {
             timer.cancel();
             timer = null;
         }
     }
 
-    private class BitmapTask extends AsyncTask<String, Void, Bitmap> {
+    private static class BitmapTask extends AsyncTask<String, Void, Bitmap> {
+
+        private WeakReference<NotificationPanel> contextReference;
+
+        BitmapTask(NotificationPanel context) {
+            contextReference = new WeakReference<>(context);
+        }
+
         @Override
         protected Bitmap doInBackground(String... params) {
             try {
@@ -262,8 +256,9 @@ public class NotificationPanel extends Service {
 
         @Override
         protected void onPostExecute(Bitmap cover) {
-            info.cover = cover;
-            coverDownloadTask = null;
+            NotificationPanel context = contextReference.get();
+            context.info.cover = cover;
+            context.coverDownloadTask = null;
         }
     }
 }
