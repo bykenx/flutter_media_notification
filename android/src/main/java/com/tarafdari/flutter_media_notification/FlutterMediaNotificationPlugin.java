@@ -10,7 +10,6 @@ import io.flutter.plugin.common.PluginRegistry.Registrar;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.content.res.Resources;
 
 import androidx.annotation.NonNull;
 
@@ -40,7 +39,7 @@ public class FlutterMediaNotificationPlugin implements MethodCallHandler {
         final int position = Utils.getDefault((int) call.argument("position"), 0);
         final int duration = Utils.getDefault((int) call.argument("duration"), 0);
         final double rate = Utils.getDefault((Double) call.argument("rate"), 1.0);
-        showNotification(title, author, isPlaying, cover, position, duration, rate);
+        showNotification(isPlaying, title, author, cover, position, duration, rate);
         result.success(null);
         break;
       case "hideNotification":
@@ -53,22 +52,10 @@ public class FlutterMediaNotificationPlugin implements MethodCallHandler {
   }
 
   static void callEvent(String event) {
-
-    FlutterMediaNotificationPlugin.channel.invokeMethod(event, null, new Result() {
-      @Override
-      public void success(Object o) {
-        // this will be called with o = "some string"
-      }
-
-      @Override
-      public void error(String s, String s1, Object o) {}
-
-      @Override
-      public void notImplemented() {}
-    });
+    FlutterMediaNotificationPlugin.channel.invokeMethod(event, null);
   }
 
-  private static void showNotification(String title, String author, boolean isPlaying, String cover, int position, int duration, double rate) {
+  private static void showNotification(boolean isPlaying, String title, String author, String cover, int position, int duration, double rate) {
     Intent serviceIntent = new Intent(registrar.context(), NotificationPanel.class);
     serviceIntent.setAction(NotificationPanel.ACTION_SHOW_NOTIFICATION);
     PackageManager pm = registrar.context().getPackageManager();

@@ -45,8 +45,8 @@ public class NotificationPanel extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        builder = new NotificationCompat.Builder(this, CHANNEL_ID);
         remoteViews = new RemoteViews(getPackageName(), R.layout.media_notification_layout);
+        builder = new NotificationCompat.Builder(this, CHANNEL_ID).setCustomContentView(remoteViews);
         info = MediaInfo.defaults();
         createNotificationChannel();
     }
@@ -68,7 +68,6 @@ public class NotificationPanel extends Service {
         setContentViewData(remoteViews, info);
 
         startForeground(NOTIFICATION_ID, builder.build());
-
         if (info.isPlaying) {
             startTimer();
         } else {
@@ -87,8 +86,7 @@ public class NotificationPanel extends Service {
 
         builder
                 .setContentTitle(info.appName)
-                .setSmallIcon(info.appIcon)
-                .setCustomContentView(remoteViews);
+                .setSmallIcon(info.appIcon);
 
         setActions(remoteViews);
 
@@ -104,6 +102,7 @@ public class NotificationPanel extends Service {
 
     @Override
     public void onDestroy() {
+        clearTimer();
         super.onDestroy();
     }
 
